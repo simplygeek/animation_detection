@@ -1,2 +1,2 @@
 # animation_detection
-Detection Animation in imagefile
+Image Animation Detection
