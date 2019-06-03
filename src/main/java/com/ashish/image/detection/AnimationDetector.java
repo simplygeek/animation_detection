@@ -8,6 +8,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
 import java.net.URLConnection;
 
 /**
@@ -21,12 +22,15 @@ public class AnimationDetector {
         return MediaType.parse(contentType);
     }
 
-    public InputStream readFileFromClassPath(String fileName) {
-        return AnimationDetector.class.getResourceAsStream("/" + fileName);
+    private InputStream readFileFromClassPath(String fileName) {
+        return AnimationDetector.class.getClassLoader().getResourceAsStream(fileName);
     }
 
-    public ImageMetaData getImageMetaData(InputStream inputStream) throws IOException, MimeTypeParseException {
-        MediaType mediaType = getMediaType(inputStream);
+    public ImageMetaData getImageMetaData(String resourcePath, ResourceLocation resourceLocation) throws IOException, MimeTypeParseException {
+        return getImageMetaData(resourcePath, resourceLocation, null);
+    }
+
+    public ImageMetaData getImageMetaData(InputStream inputStream, MediaType mediaType) throws IOException, MimeTypeParseException {
         ImageMetaData.ImageMetaDataBuilder imageMetaDataBuilder = ImageMetaData.builder();
         imageMetaDataBuilder.mediaType(mediaType);//setting to infinite by default
 
@@ -35,8 +39,8 @@ public class AnimationDetector {
             decoder.read(inputStream);
             int totalTimeMills = 0;
 
-            for (int i = 0; i < decoder.getFrameCount(); i++) {
-                totalTimeMills += decoder.getDelay(i);
+            for (int frameIndex = 0; frameIndex < decoder.getFrameCount(); frameIndex++) {
+                totalTimeMills += decoder.getDelay(frameIndex);
             }
             if (decoder.getLoopCount() >= 1) {
                 imageMetaDataBuilder.loopCount(decoder.getLoopCount());
@@ -48,21 +52,28 @@ public class AnimationDetector {
         return imageMetaDataBuilder.build();
     }
 
-    public ImageMetaData getImageMetaData(String filePath, ResourceLocation resourceLocation) throws IOException, MimeTypeParseException {
+    public ImageMetaData getImageMetaData(String resourcePath, ResourceLocation resourceLocation, MediaType mediaType) throws IOException, MimeTypeParseException {
 
         InputStream inputStream = null;
         if (ResourceLocation.CLASSPATH.equals(resourceLocation)) {
-            inputStream = readFileFromClassPath(filePath);
+            inputStream = readFileFromClassPath(resourcePath);
         } else if (ResourceLocation.FILE.equals(resourceLocation)) {
-            File initialFile = new File(filePath);
+            File initialFile = new File(resourcePath);
             inputStream = new FileInputStream(initialFile);
+        } else if (ResourceLocation.URL.equals(resourceLocation)) {
+            URL url = new URL(resourcePath);
+            inputStream = url.openStream();
         }
-        return getImageMetaData(inputStream);
+        if (mediaType == null) {
+            mediaType = getMediaType(inputStream);
+        }
+        return getImageMetaData(inputStream, mediaType);
     }
 
     public enum ResourceLocation {
         CLASSPATH,
-        FILE
+        FILE,
+        URL
     }
 
 }
